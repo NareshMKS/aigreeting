@@ -1,6 +1,6 @@
 import { useReducer, useCallback } from 'react';
-import type { TemplateState, TemplateAction, TextArea, TemplateConfig, Orientation, DEFAULT_FONT_FAMILY } from '@/types/template';
-import { ORIENTATION_CANVAS_SIZES, PREDEFINED_TEXT_AREA_IDS } from '@/types/template';
+import type { TemplateState, TemplateAction, TextArea, TemplateConfig, Orientation } from '@/types/template';
+import { ORIENTATION_CANVAS_SIZES } from '@/types/template';
 
 const DEFAULT_CANVAS = { width: 1080, height: 1080 };
 

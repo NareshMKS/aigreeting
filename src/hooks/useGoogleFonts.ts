@@ -63,7 +63,7 @@ export function useGoogleFonts(): UseGoogleFontsReturn {
     fetchFonts();
   }, []);
 
-  const loadFont = useCallback((fontFamily: string, variant: string = 'regular') => {
+  const loadFont = useCallback((fontFamily: string, _variant: string = 'regular') => {
     if (loadedFontsSet.has(fontFamily)) return;
 
     // Create a link element to load the font
