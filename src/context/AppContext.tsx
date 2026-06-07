@@ -9,7 +9,7 @@ import {
 import type { Recipient } from '../types/recipient';
 import type { CardTemplate } from '../types/template';
 import { parseCSVFile } from '../services/csvParser';
-import { generateEditedImage } from '../services/imageEditService';
+import { generateCardImage } from '../services/cardImageService';
 
 function errorToMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -185,81 +185,14 @@ export function AppProvider({
       const template = templates[templateIndex];
       const templateBlob = templateBlobs[templateIndex];
       const r = recipients[i];
-      const occ = r.occasion.trim().toLowerCase();
-      const receiver = r.name || 'Friend';
-      const sender = r.sender || 'Naresh';
-      const message = r.message || '';
-
-      const buildPrompt = (): string => {
-        if (occ.includes('birthday')) {
-          return `Add elegant birthday text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Happy Birthday ${receiver}” — styled in a classy, celebratory font with a refined and modern look. ` +
-            `Subtext message: “${message || 'May God bless you with joy, good health, and great success in all that you do.'}” ` +
-            `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium birthday greeting aesthetic. Do not modify or replace the original background.`;
-        }
-        if (occ.includes('promotion')) {
-          return `Add elegant congratulatory text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Congratulations on Your Promotion” — styled in a classy, professional font with a refined and modern corporate look. ` +
-            `Subtext message: “${message || 'Your dedication, hard work, and talent have truly paid off. Wishing you continued growth and success in your new role.'}” ` +
-            `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium congratulatory aesthetic. Do not modify or replace the original background.`;
-        }
-        if (occ.includes('festival')) {
-          return `Add elegant festive greeting text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Warm Festival Wishes” — styled in a classy, celebratory font with a refined and modern festive look. ` +
-            `Subtext message: “${message || 'May this festive season fill your life with happiness, peace, and prosperity.'}” ` +
-            `Closing line: “With warm regards from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium festive greeting aesthetic. Do not modify or replace the original background.`;
-        }
-        if (occ.includes('newyear') || occ.includes('new year')) {
-          return `Add elegant New Year greeting text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Happy New Year 2026” — styled in a classy, celebratory font with a refined and modern look. ` +
-            `Subtext message: “${message || 'May the new year bring new opportunities, good health, happiness, and success in every step of your journey.'}” ` +
-            `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium New Year greeting aesthetic. Do not modify or replace the original background.`;
-        }
-        if (occ.includes('christmas')) {
-          return `Add elegant Christmas greeting text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Merry Christmas” — styled in a classy, warm, and festive font with a refined modern look. ` +
-            `Subtext message: “${message || 'May this Christmas bring you joy, peace, love, and beautiful moments with your loved ones.'}” ` +
-            `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium Christmas greeting aesthetic. Do not modify or replace the original background.`;
-        }
-        if (occ.includes('anniversary')) {
-          return `Add elegant anniversary greeting text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Happy Anniversary” — styled in a classy, romantic font with a refined and modern look. ` +
-            `Subtext message: “${message || 'Wishing you both a lifetime of love, understanding, and beautiful memories together.'}” ` +
-            `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium anniversary greeting aesthetic. Do not modify or replace the original background.`;
-        }
-        if (occ.includes('congratulations') || occ.includes('congrats')) {
-          return `Add elegant congratulatory text to the existing image without altering the background or layout. ` +
-            `Main heading text: “Congratulations” — styled in a classy, confident font with a refined and modern look. ` +
-            `Subtext message: “${message || 'Your achievement is a result of your dedication and perseverance. Wishing you continued success ahead.'}” ` +
-            `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-            `Maintain high readability, professional spacing, and a premium congratulatory aesthetic. Do not modify or replace the original background.`;
-        }
-
-        return `Add elegant greeting text for ${occ || 'a special occasion'} to the existing image without altering the background or layout. ` +
-          `Main heading text should include the name “${receiver}”. ` +
-          `Subtext message: “${message || 'Warm wishes to you.'}” ` +
-          `Closing line: “Best wishes from ${sender}”. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and do not modify or replace the original background.`;
-      };
 
       try {
-        const imageUrl = await generateEditedImage({
+        const imageUrl = await generateCardImage({
           image: templateBlob,
-          prompt: buildPrompt(),
+          name: r.name,
+          sender: r.sender,
+          occasion: r.occasion,
+          message: r.message,
         });
 
         // Update row and preview
@@ -332,84 +265,13 @@ export function AppProvider({
 
     setState((s) => ({ ...s, generatingRowIndex: index, error: null }));
 
-    // Build occasion-specific prompt using CSV fields
-    const occ = r.occasion.trim().toLowerCase();
-    const receiver = r.name || 'Friend';
-    const sender = r.sender || 'Naresh';
-    const message = r.message || '';
-
-    const buildPrompt = (): string => {
-      if (occ.includes('birthday')) {
-        return `Add elegant birthday text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Happy Birthday ${receiver}” — styled in a classy, celebratory font with a refined and modern look. ` +
-          `Subtext message: “${message || 'May God bless you with joy, good health, and great success in all that you do.'}” ` +
-          `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium birthday greeting aesthetic. Do not modify or replace the original background.`;
-      }
-      if (occ.includes('promotion')) {
-        return `Add elegant congratulatory text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Congratulations on Your Promotion” — styled in a classy, professional font with a refined and modern corporate look. ` +
-          `Subtext message: “${message || 'Your dedication, hard work, and talent have truly paid off. Wishing you continued growth and success in your new role.'}” ` +
-          `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium congratulatory aesthetic. Do not modify or replace the original background.`;
-      }
-      if (occ.includes('festival')) {
-        return `Add elegant festive greeting text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Warm Festival Wishes” — styled in a classy, celebratory font with a refined and modern festive look. ` +
-          `Subtext message: “${message || 'May this festive season fill your life with happiness, peace, and prosperity.'}” ` +
-          `Closing line: “With warm regards from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium festive greeting aesthetic. Do not modify or replace the original background.`;
-      }
-      if (occ.includes('newyear') || occ.includes('new year')) {
-        return `Add elegant New Year greeting text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Happy New Year 2026” — styled in a classy, celebratory font with a refined and modern look. ` +
-          `Subtext message: “${message || 'May the new year bring new opportunities, good health, happiness, and success in every step of your journey.'}” ` +
-          `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium New Year greeting aesthetic. Do not modify or replace the original background.`;
-      }
-      if (occ.includes('christmas')) {
-        return `Add elegant Christmas greeting text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Merry Christmas” — styled in a classy, warm, and festive font with a refined modern look. ` +
-          `Subtext message: “${message || 'May this Christmas bring you joy, peace, love, and beautiful moments with your loved ones.'}” ` +
-          `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium Christmas greeting aesthetic. Do not modify or replace the original background.`;
-      }
-      if (occ.includes('anniversary')) {
-        return `Add elegant anniversary greeting text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Happy Anniversary” — styled in a classy, romantic font with a refined and modern look. ` +
-          `Subtext message: “${message || 'Wishing you both a lifetime of love, understanding, and beautiful memories together.'}” ` +
-          `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium anniversary greeting aesthetic. Do not modify or replace the original background.`;
-      }
-      if (occ.includes('congratulations') || occ.includes('congrats')) {
-        return `Add elegant congratulatory text to the existing image without altering the background or layout. ` +
-          `Main heading text: “Congratulations” — styled in a classy, confident font with a refined and modern look. ` +
-          `Subtext message: “${message || 'Your achievement is a result of your dedication and perseverance. Wishing you continued success ahead.'}” ` +
-          `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
-          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-          `Maintain high readability, professional spacing, and a premium congratulatory aesthetic. Do not modify or replace the original background.`;
-      }
-
-      // Fallback generic prompt if no specific occasion matched
-      return `Add elegant greeting text for ${occ || 'a special occasion'} to the existing image without altering the background or layout. ` +
-        `Main heading text should include the name “${receiver}”. ` +
-        `Subtext message: “${message || 'Warm wishes to you.'}” ` +
-        `Closing line: “Best wishes from ${sender}”. ` +
-        `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
-        `Maintain high readability, professional spacing, and do not modify or replace the original background.`;
-    };
-
     try {
-      const imageUrl = await generateEditedImage({
+      const imageUrl = await generateCardImage({
         image: selectedTemplateBlob,
-        prompt: buildPrompt(),
-        // defaults for lora/seed/steps/guidance are handled in the service
+        name: r.name,
+        sender: r.sender,
+        occasion: r.occasion,
+        message: r.message,
       });
 
       setState((s) => ({

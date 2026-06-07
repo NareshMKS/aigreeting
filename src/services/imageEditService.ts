@@ -1,5 +1,80 @@
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
+const GEMINI_API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
+
+function getGeminiApiKey(): string | undefined {
+  const raw = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  if (!raw) return undefined;
+  return raw.trim().replace(/^["']|["']$/g, "");
+}
+
+/** New AQ.* keys from AI Studio may need Bearer auth; legacy AIza* keys use x-goog-api-key. */
+function getGeminiAuthAttempts(apiKey: string): Record<string, string>[] {
+  if (apiKey.startsWith("AQ.")) {
+    return [
+      { Authorization: `Bearer ${apiKey}` },
+      { "x-goog-api-key": apiKey },
+    ];
+  }
+  return [{ "x-goog-api-key": apiKey }];
+}
+
+function formatGeminiError(status: number, errorText: string): string {
+  let message = `Gemini API request failed with status ${status}`;
+  try {
+    const errorJson = JSON.parse(errorText);
+    message = errorJson.error?.message || message;
+  } catch {
+    message = errorText || message;
+  }
+
+  if (status === 429 && /limit:\s*0/i.test(message)) {
+    return (
+      "Gemini image generation is not available on your current plan (free-tier limit is 0). " +
+      "Enable billing in Google AI Studio (https://aistudio.google.com/) and link a payment method, " +
+      "then create a new API key and try again. Monitor usage at https://ai.dev/rate-limit"
+    );
+  }
+
+  if (status === 429) {
+    const retryMatch = message.match(/retry in ([\d.]+)s/i);
+    if (retryMatch) {
+      const seconds = Math.ceil(Number(retryMatch[1]));
+      return `Gemini rate limit reached. Wait about ${seconds} seconds and try again.`;
+    }
+  }
+
+  return message;
+}
+
+async function callGeminiApi(
+  apiKey: string,
+  payload: Record<string, unknown>
+): Promise<Response> {
+  const attempts = getGeminiAuthAttempts(apiKey);
+  let lastResponse: Response | null = null;
+
+  for (const authHeaders of attempts) {
+    const response = await fetch(GEMINI_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      return response;
+    }
+
+    lastResponse = response;
+    if (response.status !== 401 && response.status !== 403) {
+      return response;
+    }
+  }
+
+  return lastResponse!;
+}
 
 /**
  * Converts a Blob to base64 string
@@ -57,7 +132,8 @@ export async function generateEditedImage({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   steps: _steps = 4,
 }: ImageEditRequest): Promise<string> {
-  if (!GEMINI_API_KEY) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
     throw new Error(
       "Missing Gemini API key (VITE_GEMINI_API_KEY). Add it to your .env file to call the Gemini API."
     );
@@ -85,28 +161,16 @@ export async function generateEditedImage({
           ],
         },
       ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+      },
     };
 
-    // Call Gemini API
-    const response = await fetch(GEMINI_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY,
-      },
-      body: JSON.stringify(payload),
-    });
+    const response = await callGeminiApi(apiKey, payload);
 
     if (!response.ok) {
       const errorText = await response.text();
-      let errorMessage = `Gemini API request failed with status ${response.status}`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error?.message || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
-      }
-      throw new Error(errorMessage);
+      throw new Error(formatGeminiError(response.status, errorText));
     }
 
     const result = await response.json();

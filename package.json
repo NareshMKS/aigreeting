@@ -20,8 +20,13 @@
   },
   "dependencies": {
     "@gradio/client": "^2.0.4",
+    "concurrently": "^10.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
+    "node-fetch": "^3.3.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   }
